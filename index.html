@@ -1,11 +1,398 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    Simulasi stoikiometri
-  </head>
-  <body>
-    pls 
-    buatkan simulasi gacor tentang stoikiometri buat penelitian gw le
-    token gw abis
-  </body>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Pereaksi Pembatas</title>
+    <!-- Import Font VT323 untuk simulasi -->
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif; /* Default Prolog Arial */
+        }
+        #game-container {
+            position: relative;
+            width: 512px;
+            height: 288px;
+            background-color: #000;
+            transform-origin: center center;
+            overflow: hidden;
+            /* Mempertahankan ketajaman pixel art */
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        .layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* Mempertahankan ketajaman gambar pixel art */
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        /* Layar Transisi */
+        #fade-layer {
+            background-color: black;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* Teks Styling Dasar */
+        .text-element {
+            position: absolute;
+            color: black;
+            display: flex;
+        }
+        
+        /* Dialog Box Prolog (Tetap Arial) */
+        #dialog-text {
+            /* c7-n8 : x=64 to 448 (w=384), y=192 to 256 (h=64) */
+            left: 74px;
+            top: 198px; /* Sedikit diturunkan agar tidak menempel border atas kotak */
+            width: 364px;
+            height: 54px;
+            align-items: flex-start; /* Mulai teks dari atas */
+            justify-content: flex-start;
+            font-size: 15px; 
+            line-height: 1.4;
+            z-index: 10;
+            white-space: pre-wrap; /* Memaksa teks yang panjang turun baris / tidak jebol */
+        }
+        
+        #start-instruction {
+            z-index: 10;
+            transition: opacity 0.2s;
+        }
+        
+        #txtbox-layer {
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 9;
+        }
+
+        /* Simulasi Texts (Font VT323) */
+        .sim-text {
+            font-family: 'VT323', monospace;
+            align-items: center; /* Vertikal tengah */
+            justify-content: center; /* Horizontal tengah */
+            white-space: nowrap; /* Teks tidak akan turun baris (jebol ke bawah) */
+        }
+        
+        #inv-roti { left: 32px; top: 32px; width: 32px; height: 32px; color: #555; font-size: 22px;}
+        #inv-daging { left: 64px; top: 32px; width: 32px; height: 32px; color: #555; font-size: 22px;}
+        
+        /* Pereaksi (b7-f7) - Ukuran diperkecil ke 18px agar aman */
+        #text-bahan { left: 32px; top: 192px; width: 160px; height: 32px; font-size: 18px; }
+        
+        /* Hasil & Sisa (h7-o7) - Ukuran diperkecil ke 18px agar aman dan tidak jebol */
+        #text-hasil { left: 224px; top: 192px; width: 256px; height: 32px; font-size: 18px; }
+        
+        /* Teks kotak kecil bawah */
+        #jml-sandwich { left: 256px; top: 224px; width: 32px; height: 32px; font-size: 24px; }
+        #sisa-roti { left: 352px; top: 224px; width: 32px; height: 32px; font-size: 24px; }
+        #sisa-daging { left: 448px; top: 224px; width: 32px; height: 32px; font-size: 24px; }
+
+        /* Area Tombol Simulasi (Tak terlihat) */
+        .btn-zone {
+            position: absolute;
+            cursor: pointer;
+            z-index: 20;
+        }
+        #btn-add-roti { left: 32px; top: 224px; width: 64px; height: 32px; }
+        #btn-add-daging { left: 128px; top: 224px; width: 64px; height: 32px; }
+        #btn-reset { left: 448px; top: 64px; width: 64px; height: 32px; }
+        #btn-next-sec { left: 416px; top: 0px; width: 64px; height: 64px; }
+        
+        #section2 { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="fade-layer" class="layer"></div>
+
+    <!-- ================= BAGIAN 1: PROLOG ================= -->
+    <div id="section1" class="layer" onclick="handlePrologClick()">
+        <div class="layer" id="s1-canvas"><img src="kanvassrp.png" alt="Kanvas SRP" onerror="this.style.display='none'"></div>
+        
+        <div class="layer" id="s1-chara-layer">
+            <img id="s1-chara-img" src="srpchara.png" alt="Chara" style="display:none;" onerror="this.style.display='none'">
+        </div>
+        
+        <div class="layer" id="start-instruction">
+            <img src="srpstart.png" alt="Start" onerror="this.style.display='none'">
+        </div>
+        
+        <div class="layer" id="txtbox-layer">
+            <img src="srptxtbox.png" alt="Textbox" onerror="this.style.display='none'">
+            <div id="dialog-text" class="text-element"></div>
+        </div>
+    </div>
+
+    <!-- ================= BAGIAN 2: SIMULASI ================= -->
+    <div id="section2" class="layer">
+        <div class="layer" id="s2-canvas">
+            <img src="kanvassrpg.png" alt="Kanvas Simulasi" onerror="this.style.display='none'">
+        </div>
+        
+        <div class="layer" id="sim-layer-visual"></div>
+        
+        <div class="layer">
+            <div id="inv-roti" class="text-element sim-text">5</div>
+            <div id="inv-daging" class="text-element sim-text">2</div>
+            
+            <div id="text-bahan" class="text-element sim-text"></div>
+            <div id="text-hasil" class="text-element sim-text"></div>
+            
+            <div id="jml-sandwich" class="text-element sim-text">-</div>
+            <div id="sisa-roti" class="text-element sim-text">-</div>
+            <div id="sisa-daging" class="text-element sim-text">-</div>
+        </div>
+        
+        <div class="layer">
+            <div id="btn-add-roti" class="btn-zone" onclick="addRoti()"></div>
+            <div id="btn-add-daging" class="btn-zone" onclick="addDaging()"></div>
+            <div id="btn-reset" class="btn-zone" onclick="resetSim()"></div>
+            <div id="btn-next-sec" class="btn-zone" onclick="nextSection3()"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- AUTOFIT & RESCALING LOGIC ---
+    function resizeCanvas() {
+        const container = document.getElementById('game-container');
+        const scale = Math.min(window.innerWidth / 512, window.innerHeight / 288);
+        container.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- PROLOG LOGIC (BAGIAN 1) ---
+    const dialogs = [
+        { text: "Halo perkenalkan aku kurori", char: "srpchara.png" },
+        { text: "Maukah kamu membantuku menyiapkan sandwich dengan roti dan daging?", char: "srpchara.png" },
+        { text: "Namun aku hanya memiliki 5 roti..", char: "srpcharb.png" },
+        { text: "... dan 2 potong daging", char: "srpcharc.png" },
+        { text: "Jangan khawatir, dagingnya ku panaskan dulu kok!", char: "srpcharc1.png" },
+        { text: "Kalau begitu ayo bantu aku dengan menentukan perbandingan roti dan dagingnya!", char: "srpchara.png" }
+    ];
+    
+    let prologState = 0; // 0: Start, 1: Berjalan
+    let dialogIndex = 0;
+    
+    // Variabel Typewriter
+    let autoAdvanceTimer;
+    let typingInterval;
+    let isTyping = false;
+    let currentFullText = "";
+
+    function handlePrologClick() {
+        if (prologState === 0) {
+            startProlog();
+        } else if (prologState === 1) {
+            if (isTyping) {
+                // Selesaikan efek ketik secara instan
+                finishTypingInstantly();
+            } else {
+                // Lanjut ke dialog berikutnya
+                advanceToNextDialog();
+            }
+        }
+    }
+
+    // Dukungan Keyboard
+    document.addEventListener('keydown', function(e) {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            if (document.getElementById('section1').style.display !== 'none') {
+                handlePrologClick();
+            }
+        }
+    });
+
+    function startProlog() {
+        document.getElementById('start-instruction').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('txtbox-layer').style.opacity = '1';
+            document.getElementById('s1-chara-img').style.display = 'block';
+            prologState = 1;
+            showDialog(0);
+        }, 500);
+    }
+
+    function showDialog(index) {
+        clearTimeout(autoAdvanceTimer);
+        clearInterval(typingInterval);
+        
+        currentFullText = dialogs[index].text;
+        document.getElementById('s1-chara-img').src = dialogs[index].char;
+        
+        let textElement = document.getElementById('dialog-text');
+        textElement.textContent = "";
+        isTyping = true;
+        let charIndex = 0;
+        
+        // Efek Typewriter (35ms per karakter)
+        // Perbaikan spasi menyatu: gunakan textContent dan substring
+        typingInterval = setInterval(() => {
+            textElement.textContent = currentFullText.substring(0, charIndex + 1);
+            charIndex++;
+            if (charIndex >= currentFullText.length) {
+                finishTypingInstantly();
+            }
+        }, 35);
+    }
+
+    function finishTypingInstantly() {
+        clearInterval(typingInterval);
+        isTyping = false;
+        document.getElementById('dialog-text').textContent = currentFullText;
+        
+        // Memulai hitung mundur 5 detik jika tidak diklik
+        clearTimeout(autoAdvanceTimer);
+        autoAdvanceTimer = setTimeout(() => {
+            advanceToNextDialog();
+        }, 5000);
+    }
+
+    function advanceToNextDialog() {
+        clearTimeout(autoAdvanceTimer);
+        dialogIndex++;
+        if (dialogIndex < dialogs.length) {
+            showDialog(dialogIndex);
+        } else {
+            endProlog();
+        }
+    }
+
+    function endProlog() {
+        prologState = 2; // Selesai
+        const fadeLayer = document.getElementById('fade-layer');
+        fadeLayer.style.opacity = '1'; // Fade out
+        
+        setTimeout(() => {
+            document.getElementById('section1').style.display = 'none';
+            document.getElementById('section2').style.display = 'block';
+            resetSim();
+            
+            setTimeout(() => {
+                fadeLayer.style.opacity = '0'; // Fade in
+            }, 50);
+        }, 300);
+    }
+
+    // --- SIMULASI LOGIC (BAGIAN 2) ---
+    let roti = 0;
+    let daging = 0;
+    let invRoti = 5;
+    let invDaging = 2;
+
+    function addRoti() {
+        if (invRoti > 0) {
+            roti++;
+            invRoti--;
+            updateSimVisuals();
+        }
+    }
+
+    function addDaging() {
+        if (invDaging > 0) {
+            daging++;
+            invDaging--;
+            updateSimVisuals();
+        }
+    }
+
+    function resetSim() {
+        roti = 0;
+        daging = 0;
+        invRoti = 5;
+        invDaging = 2;
+        updateSimVisuals();
+    }
+    
+    function nextSection3() {
+        console.log("Menuju Simulasi Reaksi Kimia (Seksi 3 belum tersedia)");
+    }
+
+    function updateSimVisuals() {
+        document.getElementById('inv-roti').textContent = invRoti;
+        document.getElementById('inv-daging').textContent = invDaging;
+        
+        let imgName = "";
+        if (roti > 0 && daging > 0) {
+            imgName = `srpr${roti}d${daging}.png`;
+        } else if (roti > 0) {
+            imgName = `srpr${roti}.png`;
+        } else if (daging > 0) {
+            imgName = `srpd${daging}.png`;
+        }
+        
+        const visualLayer = document.getElementById('sim-layer-visual');
+        if (imgName) {
+            visualLayer.innerHTML = `<img src="${imgName}" alt="Visual" onerror="this.style.display='none'">`;
+        } else {
+            visualLayer.innerHTML = "";
+        }
+        
+        let sandwich = Math.min(Math.floor(roti / 2), Math.floor(daging / 1));
+        let sisaR = roti - (sandwich * 2);
+        let sisaD = daging - (sandwich * 1);
+        
+        document.getElementById('jml-sandwich').textContent = sandwich > 0 ? sandwich : "-";
+        document.getElementById('sisa-roti').textContent = sisaR > 0 ? sisaR : "-";
+        document.getElementById('sisa-daging').textContent = sisaD > 0 ? sisaD : "-";
+        
+        if (roti === 0 && daging === 0) {
+            document.getElementById('text-bahan').textContent = "";
+            document.getElementById('text-hasil').textContent = "";
+        } else {
+            let bText = [];
+            if (roti > 0) bText.push(`${roti} Roti`);
+            if (daging > 0) bText.push(`${daging} Daging`);
+            document.getElementById('text-bahan').textContent = bText.join(" + ");
+            
+            let hText = "";
+            if (sandwich > 0) {
+                hText += `${sandwich} Sandwich`;
+            }
+            
+            let sArr = [];
+            if (sisaR > 0) sArr.push(`${sisaR} Roti`);
+            if (sisaD > 0) sArr.push(`${sisaD} Daging`);
+            
+            if (sArr.length > 0) {
+                if (sandwich > 0) hText += " + ";
+                hText += sArr.join(" + "); 
+            }
+            
+            document.getElementById('text-hasil').textContent = hText;
+        }
+    }
+</script>
+</body>
 </html>
